@@ -36,7 +36,7 @@
         <StackPanel Grid.Row="3" Orientation="Horizontal">
             <Button Name="OpenBtn" Click="OpenBtn_Click" FontSize="25" Margin="190,15,0,0" Width="120" Height="50" FontWeight="DemiBold">Open File</Button>
             <Button Name="startBtn" Click="startBtn_Click" FontSize="25" Margin="30,15,0,0" Width="120" Height="50" FontWeight="DemiBold">Start</Button>
-            <Button Name="cancelBtn" FontSize="25" Margin="30,15,0,0" Width="120" Height="50" FontWeight="DemiBold">Cancel</Button>
+            <Button Name="cancelBtn" Click="cancelBtn_Click" FontSize="25" Margin="30,15,0,0" Width="120" Height="50" FontWeight="DemiBold">Cancel</Button>
         </StackPanel>
     </Grid>
 </Window>
