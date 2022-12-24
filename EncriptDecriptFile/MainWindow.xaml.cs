@@ -13,6 +13,13 @@ namespace EncriptDecriptFile
     /// </summary>
     public partial class MainWindow : Window
     {
+        CancellationTokenSource cancellationTokenSource = null;
+
+        string Path = string.Empty;
+        string Text = string.Empty;
+        string Key = string.Empty;
+        int KeyIndex = 0;
+
         public bool check = false;
         public MainWindow()
         {
@@ -35,81 +42,123 @@ namespace EncriptDecriptFile
             Process.Start("notepad.exe", filenameTxtBox.Text);
         }
 
-        public void encdec(string str, string key)
+        void InitIndex()
         {
+            KeyIndex++;
+            if (KeyIndex > Key.Length - 1)
+                KeyIndex = 0;
+        }
 
-            if (str != "")
+        public void encdec()
+        {
+            cancellationTokenSource = new CancellationTokenSource();
+            CancellationToken token = cancellationTokenSource.Token;
+
+            if (string.IsNullOrWhiteSpace(Path))
+                return;
+
+
+            KeyIndex = 0;
+            StringBuilder builder = new StringBuilder();
+            Text = string.Empty;
+            this.Dispatcher.Invoke(() => { Text = filenameTxtBox.Text; });
+            this.Dispatcher.Invoke(() => { prgBar.Value = 0; prgBar.Maximum = Path.Length; prgBar.Minimum = 0; });
+
+            // For clear text
+            using (StreamWriter sw = new(Text)) { }
+
+            try
             {
+                Encryption(token);
+            }
+            catch (OperationCanceledException)
+            {
+                Decryption();
+            }
+            catch (Exception ex) { MessageBox.Show(ex.Message); return; }
 
-                int keyIndex = 0;
-                void InitIndex()
+            this.Dispatcher.Invoke(() => { prgBar.Value = 0; });
+            MessageBox.Show("Finished !");
+
+        }
+
+        public void Encryption(CancellationToken token)
+        {
+            // Encrypt
+            for (int i = 0; i < Path.Length; i++)
+            {
+                if (token.IsCancellationRequested)
+                    token.ThrowIfCancellationRequested();
+                using (StreamWriter sw = new(Text, true))
                 {
-                    keyIndex++;
-                    if (keyIndex > key.Length - 1)
-                        keyIndex = 0;
-                }
-                StringBuilder builder = new StringBuilder();
-                string stra = "";
-                this.Dispatcher.Invoke(() => { stra = filenameTxtBox.Text; });
-                this.Dispatcher.Invoke(() => { prgBar.Value = 0; prgBar.Maximum = str.Length; prgBar.Minimum = 0; });
-                using (StreamWriter sw = new(stra))
+                    InitIndex();
+                    sw.Write((char)(Path[i] ^ (char)Key[KeyIndex]));
+                };
+                this.Dispatcher.Invoke(() => { prgBar.Value++; });
+                Thread.Sleep(50);
+            }
+        }
+
+        public void Decryption()
+        {
+            string reader = File.ReadAllText(Text);
+            while (reader != "")
+            {
+                using (StreamWriter sw = new(Text))
                 {
-                }
-                for (int i = 0; i < str.Length; i++)
-                {
-                    if (check == true)
-                        break;
-                    using (StreamWriter sw = new(stra, true))
-                    {
-                        InitIndex();
-                        sw.Write((char)(str[i] ^ (char)key[keyIndex]));
-                    }
-                    this.Dispatcher.Invoke(() => { prgBar.Value++; });
+                    sw.Write(reader);
+                    reader = reader.Remove(reader.Length - 1, 1);
+                    this.Dispatcher.Invoke(() => { prgBar.Value--; });
                     Thread.Sleep(50);
                 }
-                if (check == true)
-                {
-                    string reader = File.ReadAllText(stra);
-                    while (reader != "")
-                    {
-                        using (StreamWriter sw = new(stra))
-                        {
-                            sw.Write(reader);
-                            reader = reader.Remove(reader.Length - 1, 1);
-                            this.Dispatcher.Invoke(() => { prgBar.Value--; });
-                            Thread.Sleep(50);
-                        }
-                    }
-                    using (StreamWriter sw = new(stra))
-                    {
-                        sw.Write(str);
-                    }
-                }
+            }
+            using (StreamWriter sw = new(Text))
+            {
+                sw.Write(Path);
             }
         }
 
         private void startBtn_Click(object sender, RoutedEventArgs e)
         {
-            check = false;
-            string str = "";
-            try
+
+            if (encryptRbtn.IsChecked is false && decryptRbtn.IsChecked is false)
             {
-                str = File.ReadAllText(filenameTxtBox.Text);
-            }
-            catch (Exception)
-            {
+                MessageBox.Show("Encryption or Decryption must be selected");
+                return;
             }
 
-            if (str != "")
+            Path = string.Empty;
+            try
             {
-                string password = passwordTxtBox.Text;
-                ThreadPool.QueueUserWorkItem((a) => encdec(str, password));
+                Path = File.ReadAllText(filenameTxtBox.Text);
             }
+            catch (Exception ex) { MessageBox.Show(ex.Message); return; }
+
+            if (string.IsNullOrWhiteSpace(Path))
+            {
+                MessageBox.Show("File Path can't be empty !");
+                return;
+            }
+
+            Key = passwordTxtBox.Text;
+
+            if (string.IsNullOrWhiteSpace(Key))
+            {
+                MessageBox.Show("Password can't be empty !");
+                return;
+            }
+
+            ThreadPool.QueueUserWorkItem((a) => encdec());
+
         }
 
         private void cancelBtn_Click(object sender, RoutedEventArgs e)
         {
-            check = true;           
+            try
+            {
+                cancellationTokenSource?.Cancel();
+            }
+            catch (Exception ex) { MessageBox.Show(ex.Message); }
         }
     }
 }
